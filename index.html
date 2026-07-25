@@ -391,6 +391,16 @@
 <input type="file" id="importJSON" accept=".json" style="display:none" onchange="importarJSON(event)">
 
 <div class="card">
+  <h2> Configurações</h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-warning" onclick="removerTodasFotos()" style="flex:1"> Remover fotos dos dados</button>
+    <span style="font-size:0.8rem;color:#6b7280;width:100%">
+      Remove todas as fotos das anotações (mantém textos, locais, status). Use quando a vistoria estiver concluída para liberar espaço.
+    </span>
+  </div>
+</div>
+
+<div class="card">
   <h2> Anotações por Local</h2>
   <div id="listaAnotacoes"></div>
 </div>
@@ -564,7 +574,7 @@
       const img = new Image();
       img.onload = function() {
         const canvas = document.createElement('canvas');
-        const maxW = 1000;
+        const maxW = 800;
         let w = img.width, h = img.height;
         if (w > maxW) { h = (maxW * h) / w; w = maxW; }
         canvas.width = w;
@@ -572,7 +582,7 @@
         const ctx = canvas.getContext('2d');
         if (!ctx) { alert('Erro ao processar imagem'); return; }
         ctx.drawImage(img, 0, 0, w, h);
-        fotoAtual = canvas.toDataURL('image/jpeg', 0.6);
+        fotoAtual = canvas.toDataURL('image/jpeg', 0.45);
         document.getElementById('fotoPreview').innerHTML = '<img src="' + fotoAtual + '" alt="Preview">';
         document.getElementById('btnTrocarFoto').style.display = '';
       };
@@ -966,6 +976,19 @@
     navigator.share({ title: 'Vistoria Pós Pintura', files: [file] }).catch(function(e) {
       if (e.name !== 'AbortError') mostrarToast('Erro ao compartilhar: ' + e.message);
     });
+  }
+
+  function removerTodasFotos() {
+    const lista = carregarAnotacoes();
+    if (lista.length === 0) { alert('Não há anotações.'); return; }
+    const comFoto = lista.filter(a => a.foto).length;
+    if (comFoto === 0) { mostrarToast(' Nenhuma foto para remover'); return; }
+    if (!confirm('Remover todas as ' + comFoto + ' foto(s) das anotações?\n\nOs textos, locais e status serão mantidos. Esta operação não pode ser desfeita!')) return;
+    lista.forEach(function(a) { delete a.foto; });
+    localStorage.setItem(STORAGE_KEY + '_saved_at', new Date().toISOString());
+    salvarAnotacoes(lista);
+    renderizarLista();
+    mostrarToast(' ' + comFoto + ' foto(s) removida(s)');
   }
 
   async function init() {
