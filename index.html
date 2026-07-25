@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vistoria Pintura">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Vistoria Pós Pintura</title>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f2f5;
+    color: #333;
+    padding: 10px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+  }
+  header {
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  header h1 { font-size: 1.3rem; margin-bottom: 5px; }
+  header p { font-size: 0.85rem; opacity: 0.9; }
+
+  .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-size: 0.78rem;
+  }
+  .stat-item {
+    background: rgba(255,255,255,0.15);
+    padding: 4px 10px;
+    border-radius: 8px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .stat-item .num { font-weight: 700; font-size: 0.9rem; }
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.12);
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+  .sync-badge.ok { background: rgba(16,185,129,0.25); }
+  .sync-badge.off { background: rgba(239,68,68,0.2); }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .card h2 {
+    font-size: 1rem;
+    margin-bottom: 12px;
+    color: #1e3a8a;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 8px;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    margin: 10px 0 5px;
+    font-size: 0.9rem;
+    color: #374151;
+  }
+  input[type="text"], textarea, select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+  input[type="text"]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .photo-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    margin-top: 5px;
+    background: #f9fafb;
+  }
+  .photo-area img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+  .photo-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+  .btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    transition: opacity 0.2s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: #3b82f6; color: white; }
+  .btn-success { background: #10b981; color: white; }
+  .btn-danger { background: #ef4444; color: white; }
+  .btn-secondary { background: #6b7280; color: white; }
+  .btn-warning { background: #f59e0b; color: white; }
+  .btn-outline { background: transparent; color: #374151; border: 1px solid #d1d5db; }
+  .btn-block { width: 100%; margin-top: 12px; }
+  .btn-sm { padding: 8px 12px; font-size: 0.8rem; min-height: 36px; }
+
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+  .actions-row .btn { flex: 1; min-width: 100px; }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .toolbar input, .toolbar select { flex: 1; min-width: 100px; }
+
+  .local-group {
+    margin-bottom: 20px;
+    border-left: 4px solid #3b82f6;
+    padding-left: 12px;
+  }
+  .local-group h3 {
+    color: #1e3a8a;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .local-group h3 .count {
+    background: #dbeafe;
+    color: #1e3a8a;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+  }
+
+  .item {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #e5e7eb;
+  }
+  .item-desc { font-size: 0.95rem; line-height: 1.5; color: #374151; }
+  .item-meta {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .status-pendente { background: #fef3c7; color: #92400e; }
+  .status-andamento { background: #dbeafe; color: #1e40af; }
+  .status-concluido { background: #d1fae5; color: #065f46; }
+
+  .item-photo {
+    margin-top: 10px;
+    cursor: pointer;
+  }
+  .item-photo img {
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+  }
+  .item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .btn-small {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    min-height: 36px;
+    flex: 1;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 30px 15px;
+    color: #9ca3af;
+  }
+  .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+  }
+  .modal.active { display: flex; }
+  .modal img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+  .modal-close {
+    position: absolute;
+    top: 15px; right: 15px;
+    background: white;
+    border: none;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 1001;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    z-index: 2000;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .install-banner {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .install-banner.show { display: flex; }
+  .install-banner p { font-size: 0.9rem; color: #92400e; flex: 1; }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 600px) {
+    body { padding: 8px; }
+    header h1 { font-size: 1.1rem; }
+    .card { padding: 12px; }
+    .actions-row .btn { min-width: 80px; font-size: 0.8rem; padding: 10px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1> Vistoria Pós Pintura</h1>
+  <p id="headerDate"></p>
+  <div class="stats" id="stats"></div>
+  <div class="sync-badge" id="syncBadge"> Sincronizando...</div>
+</header>
+
+<div class="install-banner" id="installBanner">
+  <p> Instale o app na tela inicial para usar offline!</p>
+  <button class="btn btn-warning btn-sm" onclick="instalarApp()">Instalar</button>
+</div>
+
+<div class="card">
+  <h2 id="formTitle"> Nova Anotação</h2>
+
+  <label for="local">Local / Ambiente</label>
+  <input type="text" id="local" placeholder="Ex: Fachada Norte, Bloco A - 3º andar..." list="locais-sugestoes">
+  <datalist id="locais-sugestoes"></datalist>
+
+  <label for="descricao">Descrição do serviço necessário</label>
+  <textarea id="descricao" placeholder="Descreva o que deve ser realizado..."></textarea>
+
+  <label for="prioridade">Prioridade</label>
+  <select id="prioridade">
+    <option value="Baixa">Baixa</option>
+    <option value="Média" selected>Média</option>
+    <option value="Alta">Alta</option>
+  </select>
+
+  <label for="status">Status</label>
+  <select id="status">
+    <option value="Pendente">Pendente</option>
+    <option value="Em andamento">Em andamento</option>
+    <option value="Concluído">Concluído</option>
+  </select>
+
+  <label>Foto do local</label>
+  <div class="photo-area">
+    <div class="photo-buttons">
+      <button type="button" class="btn btn-secondary" onclick="abrirCamera()"> Câmera</button>
+      <button type="button" class="btn btn-secondary" onclick="abrirGaleria()"> Galeria</button>
+      <button type="button" class="btn btn-secondary" id="btnTrocarFoto" onclick="abrirGaleria()" style="display:none"> Trocar</button>
+    </div>
+    <input type="file" id="fotoCamera" accept="image/*" capture="environment" style="display:none" onchange="processarFoto(event)">
+    <input type="file" id="fotoGaleria" accept="image/*" style="display:none" onchange="processarFoto(event)">
+    <div id="fotoPreview"></div>
+  </div>
+
+  <button class="btn btn-primary btn-block" id="btnSalvar" onclick="salvarAnotacao()"> Salvar Anotação</button>
+  <button class="btn btn-secondary btn-block" id="btnCancelar" onclick="cancelarEdicao()" style="display:none;"> Cancelar Edição</button>
+</div>
+
+<div class="card" style="padding:12px">
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder=" Buscar..." oninput="setSearch(this.value)">
+    <select id="filterStatus" onchange="setFilter(this.value)">
+      <option value="Todas">Status: Todas</option>
+      <option value="Pendente">Pendente</option>
+      <option value="Em andamento">Em andamento</option>
+      <option value="Concluído">Concluído</option>
+    </select>
+    <select id="sortBy" onchange="setSortBy(this.value)">
+      <option value="data">Data ↓</option>
+      <option value="dataAsc">Data ↑</option>
+      <option value="prioridade">Prioridade</option>
+      <option value="local">Local</option>
+    </select>
+  </div>
+</div>
+
+<div class="actions-row">
+  <button class="btn btn-success" onclick="exportarPDF()" id="btnPDF"> PDF</button>
+  <button class="btn btn-outline" onclick="exportarJSON()"> JSON</button>
+  <button class="btn btn-outline" onclick="document.getElementById('importJSON').click()"> JSON</button>
+  <button class="btn btn-secondary" onclick="compartilharDados()"> Compartilhar</button>
+  <button class="btn btn-danger" onclick="limparTudo()"> Limpar</button>
+</div>
+<input type="file" id="importJSON" accept=".json" style="display:none" onchange="importarJSON(event)">
+
+<div class="card">
+  <h2> Anotações por Local</h2>
+  <div id="listaAnotacoes"></div>
+</div>
+
+<div class="modal" id="modalFoto" onclick="if(event.target===this)fecharModal()">
+  <button class="modal-close" onclick="fecharModal()">×</button>
+  <img id="modalImg" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let fotoAtual = null;
+  let editandoId = null;
+  let deferredPrompt = null;
+  let sortBy = 'data';
+  let filterStatus = 'Todas';
+  let searchTerm = '';
+  const STORAGE_KEY = 'vistoria_pintura_condominio';
+
+  const SUPABASE_URL = 'https://syjpoygigqswodrmjoph.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN5anBveWdpZ3Fzd29kcm1qb3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDYwMDgsImV4cCI6MjA5Nzg4MjAwOH0.EpDJvnIg1OXFwkceKX4aRAIXDCuwNimvq6XQtpFT_Pg';
+  const SUPABASE_TABLE = 'vistoria_notes';
+
+  const hoje = new Date();
+  document.getElementById('headerDate').textContent = hoje.toLocaleDateString('pt-BR', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js?v=2').catch(err => console.log('SW erro:', err));
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installBanner').classList.add('show');
+  });
+
+  function instalarApp() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(choice => {
+        if (choice.outcome === 'accepted') mostrarToast(' App instalado!');
+        deferredPrompt = null;
+        document.getElementById('installBanner').classList.remove('show');
+      });
+    } else {
+      mostrarToast('Use "Adicionar à tela inicial" no menu do navegador');
+    }
+  }
+
+  function setSyncStatus(status) {
+    const badge = document.getElementById('syncBadge');
+    if (status === 'online') {
+      badge.innerHTML = ' Online';
+      badge.className = 'sync-badge ok';
+    } else if (status === 'off') {
+      badge.innerHTML = ' Offline';
+      badge.className = 'sync-badge off';
+    } else {
+      badge.innerHTML = ' Sincronizando...';
+      badge.className = 'sync-badge';
+    }
+  }
+
+  function mostrarToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function carregarAnotacoes() {
+    try {
+      const dados = localStorage.getItem(STORAGE_KEY);
+      return dados ? JSON.parse(dados) : [];
+    } catch (e) { return []; }
+  }
+
+  function salvarAnotacoes(lista) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
+      salvarNaNuvem(lista);
+    } catch (e) {
+      alert('Erro ao salvar. Armazenamento pode estar cheio.');
+    }
+  }
+
+  async function salvarNaNuvem(lista) {
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(STORAGE_KEY), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({
+          id: STORAGE_KEY,
+          data: lista,
+          updated_at: new Date().toISOString()
+        })
+      });
+      if (res.ok) {
+        setSyncStatus('online');
+      } else {
+        const txt = await res.text().catch(function(){return '';});
+        console.warn('Supabase PUT falhou:', res.status, txt.substring(0, 100));
+        setSyncStatus('off');
+      }
+    } catch (e) {
+      console.warn('Supabase sync error:', e.message);
+      setSyncStatus('off');
+    }
+  }
+
+  async function carregarDaNuvem() {
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/' + SUPABASE_TABLE + '?id=eq.' + encodeURIComponent(STORAGE_KEY) + '&select=data,updated_at', {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows.length > 0 && rows[0].data) {
+          const cloudData = rows[0].data;
+          const cloudTime = rows[0].updated_at ? new Date(rows[0].updated_at).getTime() : 0;
+          const localData = carregarAnotacoes();
+          const localTime = localStorage.getItem(STORAGE_KEY + '_saved_at');
+          const localTs = localTime ? new Date(localTime).getTime() : 0;
+
+          if (cloudTime > localTs || localData.length === 0) {
+            if (cloudData.length > 0) {
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+              } catch (e) {}
+            }
+            setSyncStatus('online');
+            return cloudData;
+          }
+        }
+        setSyncStatus('online');
+      } else {
+        setSyncStatus('off');
+      }
+    } catch (e) {
+      console.warn('Supabase load error:', e.message);
+      setSyncStatus('off');
+    }
+    return null;
+  }
+
+  function abrirCamera() {
+    document.getElementById('fotoCamera').click();
+  }
+
+  function abrirGaleria() {
+    document.getElementById('fotoGaleria').click();
+  }
+
+  function processarFoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const maxW = 1000;
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = (maxW * h) / w; w = maxW; }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { alert('Erro ao processar imagem'); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        fotoAtual = canvas.toDataURL('image/jpeg', 0.6);
+        document.getElementById('fotoPreview').innerHTML = '<img src="' + fotoAtual + '" alt="Preview">';
+        document.getElementById('btnTrocarFoto').style.display = '';
+      };
+      img.onerror = function() { alert('Erro ao carregar imagem'); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function() { alert('Erro ao ler arquivo'); };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  function salvarAnotacao() {
+    const local = document.getElementById('local').value.trim();
+    const descricao = document.getElementById('descricao').value.trim();
+    const prioridade = document.getElementById('prioridade').value;
+    const status = document.getElementById('status').value;
+
+    if (!local) { alert('Informe o local!'); return; }
+    if (!descricao) { alert('Descreva o serviço necessário!'); return; }
+
+    const lista = carregarAnotacoes();
+
+    if (editandoId) {
+      const idx = lista.findIndex(a => a.id === editandoId);
+      if (idx !== -1) {
+        lista[idx].local = local;
+        lista[idx].descricao = descricao;
+        lista[idx].prioridade = prioridade;
+        lista[idx].status = status;
+        if (fotoAtual) lista[idx].foto = fotoAtual;
+        lista[idx].dataEdicao = new Date().toISOString();
+      }
+      editandoId = null;
+      document.getElementById('formTitle').textContent = ' Nova Anotação';
+      document.getElementById('btnSalvar').textContent = ' Salvar Anotação';
+      document.getElementById('btnCancelar').style.display = 'none';
+      document.getElementById('btnTrocarFoto').style.display = 'none';
+    } else {
+      lista.push({
+        id: Date.now(),
+        local, descricao, prioridade, status,
+        foto: fotoAtual,
+        data: new Date().toISOString()
+      });
+    }
+
+    localStorage.setItem(STORAGE_KEY + '_saved_at', new Date().toISOString());
+    salvarAnotacoes(lista);
+    limparFormulario();
+    renderizarLista();
+    mostrarToast(' Salvo com sucesso!');
+  }
+
+  function editarAnotacao(id) {
+    const lista = carregarAnotacoes();
+    const item = lista.find(a => a.id === id);
+    if (!item) return;
+
+    document.getElementById('local').value = item.local;
+    document.getElementById('descricao').value = item.descricao;
+    document.getElementById('prioridade').value = item.prioridade;
+    document.getElementById('status').value = item.status;
+
+    if (item.foto) {
+      fotoAtual = item.foto;
+      document.getElementById('fotoPreview').innerHTML = '<img src="' + fotoAtual + '" alt="Preview">';
+      document.getElementById('btnTrocarFoto').style.display = '';
+    } else {
+      document.getElementById('btnTrocarFoto').style.display = 'none';
+    }
+
+    editandoId = id;
+    document.getElementById('formTitle').textContent = ' Editando Anotação';
+    document.getElementById('btnSalvar').textContent = ' Atualizar';
+    document.getElementById('btnCancelar').style.display = 'block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelarEdicao() {
+    editandoId = null;
+    limparFormulario();
+    document.getElementById('formTitle').textContent = ' Nova Anotação';
+    document.getElementById('btnSalvar').textContent = ' Salvar Anotação';
+    document.getElementById('btnCancelar').style.display = 'none';
+  }
+
+  function excluirAnotacao(id) {
+    if (!confirm('Deseja realmente excluir esta anotação?')) return;
+    let lista = carregarAnotacoes();
+    lista = lista.filter(a => a.id !== id);
+    localStorage.setItem(STORAGE_KEY + '_saved_at', new Date().toISOString());
+    salvarAnotacoes(lista);
+    renderizarLista();
+    mostrarToast(' Anotação excluída');
+  }
+
+  function limparTudo() {
+    if (!confirm('Tem certeza que deseja apagar TODAS as anotações? Esta ação não pode ser desfeita!')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY + '_saved_at');
+    salvarNaNuvem([]);
+    renderizarLista();
+    mostrarToast(' Tudo limpo');
+  }
+
+  function limparFormulario() {
+    document.getElementById('local').value = '';
+    document.getElementById('descricao').value = '';
+    document.getElementById('prioridade').value = 'Média';
+    document.getElementById('status').value = 'Pendente';
+    document.getElementById('fotoPreview').innerHTML = '';
+    document.getElementById('btnTrocarFoto').style.display = 'none';
+    fotoAtual = null;
+  }
+
+  function abrirModal(src) {
+    document.getElementById('modalImg').src = src;
+    document.getElementById('modalFoto').classList.add('active');
+  }
+  function fecharModal() {
+    document.getElementById('modalFoto').classList.remove('active');
+  }
+
+  function atualizarSugestoes() {
+    const lista = carregarAnotacoes();
+    const locais = [...new Set(lista.map(a => a.local))];
+    document.getElementById('locais-sugestoes').innerHTML = locais.map(l => '<option value="' + l.replace(/"/g, '&quot;') + '">').join('');
+  }
+
+  function setSearch(val) {
+    searchTerm = val.toLowerCase();
+    renderizarLista();
+  }
+
+  function setFilter(val) {
+    filterStatus = val;
+    renderizarLista();
+  }
+
+  function setSortBy(val) {
+    sortBy = val;
+    renderizarLista();
+  }
+
+  function atualizarContadores(lista) {
+    const total = lista.length;
+    const pendentes = lista.filter(a => a.status === 'Pendente').length;
+    const andamento = lista.filter(a => a.status === 'Em andamento').length;
+    const concluidos = lista.filter(a => a.status === 'Concluído').length;
+    document.getElementById('stats').innerHTML =
+      '<span class="stat-item"><span class="num">' + total + '</span> Total</span>' +
+      '<span class="stat-item"><span class="num">' + pendentes + '</span> Pendentes</span>' +
+      '<span class="stat-item"><span class="num">' + andamento + '</span> Andamento</span>' +
+      '<span class="stat-item"><span class="num">' + concluidos + '</span> Concluídos</span>';
+  }
+
+  function renderizarLista() {
+    let lista = carregarAnotacoes();
+    const container = document.getElementById('listaAnotacoes');
+    atualizarSugestoes();
+    atualizarContadores(lista);
+
+    if (searchTerm) {
+      lista = lista.filter(a =>
+        a.local.toLowerCase().includes(searchTerm) ||
+        a.descricao.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filterStatus !== 'Todas') {
+      lista = lista.filter(a => a.status === filterStatus);
+    }
+
+    if (lista.length === 0) {
+      container.innerHTML = '<div class="empty"><div class="empty-icon"></div><p>Nenhuma anotação encontrada.</p></div>';
+      return;
+    }
+
+    const ordemPrioridade = { Alta: 0, Media: 1, Media: 1, Baixa: 2 };
+
+    const sorted = [...lista].sort(function(a, b) {
+      if (sortBy === 'data') return b.id - a.id;
+      if (sortBy === 'dataAsc') return a.id - b.id;
+      if (sortBy === 'prioridade') return (ordemPrioridade[a.prioridade] || 1) - (ordemPrioridade[b.prioridade] || 1);
+      if (sortBy === 'local') return (a.local || '').localeCompare(b.local || '');
+      return 0;
+    });
+
+    const grupos = {};
+    sorted.forEach(function(a) {
+      if (!grupos[a.local]) grupos[a.local] = [];
+      grupos[a.local].push(a);
+    });
+
+    let html = '';
+    Object.keys(grupos).sort().forEach(function(local) {
+      html += '<div class="local-group"><h3> ' + local + ' <span class="count">' + grupos[local].length + ' ' + (grupos[local].length === 1 ? 'item' : 'itens') + '</span></h3>';
+      grupos[local].forEach(function(item) {
+        const data = new Date(item.data).toLocaleString('pt-BR');
+        const statusClass = item.status === 'Pendente' ? 'pendente' : item.status === 'Em andamento' ? 'andamento' : 'concluido';
+        const dataEditStr = item.dataEdicao ? '<span style="font-style:italic"> Editado: ' + new Date(item.dataEdicao).toLocaleString('pt-BR') + '</span>' : '';
+        const fotoEnc = item.foto ? encodeURIComponent(item.foto) : '';
+        html +=
+          '<div class="item">' +
+            '<div class="item-desc">' + item.descricao.replace(/</g,'&lt;') + '</div>' +
+            '<div class="item-meta">' +
+              '<span class="status-badge status-' + statusClass + '">' + item.status + '</span>' +
+              '<span> ' + item.prioridade + '</span>' +
+              '<span> ' + data + '</span>' +
+              dataEditStr +
+            '</div>' +
+            (item.foto ? '<div class="item-photo" onclick="abrirModal(decodeURIComponent(\'' + fotoEnc + '\'))"><img src="' + item.foto + '" alt="Foto"></div>' : '') +
+            '<div class="item-actions">' +
+              '<button class="btn btn-warning btn-small" onclick="editarAnotacao(' + item.id + ')"> Editar</button>' +
+              '<button class="btn btn-danger btn-small" onclick="excluirAnotacao(' + item.id + ')"> Excluir</button>' +
+            '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  async function exportarPDF() {
+    const lista = carregarAnotacoes();
+    if (lista.length === 0) { alert('Não há anotações para exportar!'); return; }
+
+    const btnPDF = document.getElementById('btnPDF');
+    const originalText = btnPDF.innerHTML;
+    btnPDF.innerHTML = '<span class="loading-spinner"></span> Gerando...';
+    btnPDF.disabled = true;
+
+    try {
+      if (!window.jspdf) {
+        alert('Erro: Biblioteca PDF não carregou. Verifique sua conexão e recarregue.');
+        btnPDF.innerHTML = originalText;
+        btnPDF.disabled = false;
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let y = margin;
+
+      function checkPage(needed) {
+        if (y + needed > pageHeight - margin) { doc.addPage(); y = margin; }
+      }
+
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório de Vistoria de Pintura', pageWidth / 2, 11, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Condomínio - ' + hoje.toLocaleDateString('pt-BR'), pageWidth / 2, 19, { align: 'center' });
+
+      y = 35;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Resumo:', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Total: ' + lista.length + ' | Pendentes: ' + lista.filter(function(a) { return a.status === 'Pendente'; }).length + ' | Em andamento: ' + lista.filter(function(a) { return a.status === 'Em andamento'; }).length + ' | Concluídos: ' + lista.filter(function(a) { return a.status === 'Concluído'; }).length, margin, y);
+      y += 8;
+
+      const grupos = {};
+      lista.forEach(function(a) {
+        if (!grupos[a.local]) grupos[a.local] = [];
+        grupos[a.local].push(a);
+      });
+
+      Object.keys(grupos).sort().forEach(function(local) {
+        checkPage(15);
+        doc.setFillColor(219, 234, 254);
+        doc.rect(margin, y - 4, pageWidth - margin * 2, 7, 'F');
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 58, 138);
+        doc.text(local, margin + 2, y);
+        y += 7;
+        doc.setTextColor(0, 0, 0);
+
+        grupos[local].forEach(function(item, idx) {
+          const hasFoto = !!item.foto;
+          const imgWidth = 55;
+          const imgHeight = 45;
+          const descLines = doc.splitTextToSize(item.descricao, pageWidth - margin * 2 - (hasFoto ? imgWidth + 5 : 0));
+          const descHeight = descLines.length * 3.5;
+          const blockH = 4 + 4 + Math.max(descHeight, hasFoto ? imgHeight : 0) + 8;
+
+          checkPage(blockH);
+
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.text((idx + 1) + '. [' + item.status + '] Prioridade: ' + item.prioridade, margin, y);
+          y += 4;
+          doc.setFont('helvetica', 'normal');
+          let dataStr = 'Data: ' + new Date(item.data).toLocaleString('pt-BR');
+          if (item.dataEdicao) dataStr += ' (editado: ' + new Date(item.dataEdicao).toLocaleString('pt-BR') + ')';
+          doc.text(dataStr, margin, y);
+          y += 4;
+
+          const contentY = y;
+          doc.text(descLines, margin, contentY);
+
+          if (hasFoto) {
+            try {
+              doc.addImage(item.foto, 'JPEG', pageWidth - margin - imgWidth, contentY, imgWidth, imgHeight);
+            } catch (e) { console.error('Erro imagem:', e); }
+          }
+
+          y = contentY + Math.max(descHeight, hasFoto ? imgHeight : 0) + 5;
+        });
+        y += 4;
+      });
+
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(128, 128, 128);
+        doc.text('Página ' + i + ' de ' + totalPages, pageWidth / 2, pageHeight - 6, { align: 'center' });
+        doc.text('Gerado em ' + new Date().toLocaleString('pt-BR'), margin, pageHeight - 6);
+      }
+
+      doc.save('vistoria_' + hoje.toISOString().split('T')[0] + '.pdf');
+      mostrarToast(' PDF exportado!');
+    } catch (e) {
+      console.error('Erro PDF:', e);
+      alert('Erro ao gerar PDF: ' + e.message);
+    } finally {
+      btnPDF.innerHTML = originalText;
+      btnPDF.disabled = false;
+    }
+  }
+
+  function exportarJSON() {
+    const lista = carregarAnotacoes();
+    if (lista.length === 0) { alert('Não há dados para exportar!'); return; }
+    const blob = new Blob([JSON.stringify(lista, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vistoria_dados_' + hoje.toISOString().split('T')[0] + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    mostrarToast(' JSON exportado!');
+  }
+
+  function importarJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const dados = JSON.parse(e.target.result);
+        if (!Array.isArray(dados) || dados.length === 0) { alert('Arquivo JSON inválido ou vazio.'); return; }
+        if (!confirm('Isso substituirá TODOS os dados atuais por ' + dados.length + ' registro(s) do arquivo. Deseja continuar?')) return;
+        localStorage.setItem(STORAGE_KEY + '_saved_at', new Date().toISOString());
+        salvarAnotacoes(dados);
+        renderizarLista();
+        mostrarToast(' Dados importados!');
+      } catch (err) {
+        alert('Erro ao ler JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  function compartilharDados() {
+    if (!navigator.share) {
+      mostrarToast('Compartilhamento não suportado neste navegador');
+      return;
+    }
+    const lista = carregarAnotacoes();
+    if (lista.length === 0) { alert('Não há dados para compartilhar!'); return; }
+    const blob = new Blob([JSON.stringify({ app: 'Vistoria Pos Pintura', data: lista, exportadoEm: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+    const file = new File([blob], 'vistoria_dados.json', { type: 'application/json' });
+    navigator.share({ title: 'Vistoria Pós Pintura', files: [file] }).catch(function(e) {
+      if (e.name !== 'AbortError') mostrarToast('Erro ao compartilhar: ' + e.message);
+    });
+  }
+
+  async function init() {
+    setSyncStatus('off');
+    renderizarLista();
+
+    const cloudData = await carregarDaNuvem();
+    if (cloudData && cloudData.length > 0) {
+      const localData = carregarAnotacoes();
+      if (JSON.stringify(cloudData) !== JSON.stringify(localData)) {
+        renderizarLista();
+        mostrarToast(' Dados sincronizados da nuvem');
+      }
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
