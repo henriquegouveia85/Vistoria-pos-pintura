@@ -1,0 +1,35 @@
+name: Deploy to Vercel
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instala jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+      - name: Trigger deploy via Vercel API
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          JSON=$(curl -s -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.vercel.com/v13/deployments" \
+            -d '{
+              "name":"vistoria-pos-pintura",
+              "project":"'"$VERCEL_PROJECT_ID"'",
+              "target":"production",
+              "gitSource":{"type":"github","repo":"Vistoria-pos-pintura","ref":"main","repoId":""}
+            }')
+          STATE=$(echo "$JSON" | jq -r '.readyState // "?"')
+          URL=$(echo "$JSON" | jq -r '.url // "?"')
+          echo "Deploy: $STATE - $URL"
+          if [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
+            echo "ERROR: $JSON"
+            exit 1
+          fi
