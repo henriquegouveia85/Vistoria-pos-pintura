@@ -392,12 +392,18 @@
 
 <div class="card">
   <h2> Configurações</h2>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
+  <label for="configCondominio">Nome do Condomínio</label>
+  <input type="text" id="configCondominio" placeholder="Ex: Residencial Park Avenue" onchange="salvarConfig()">
+
+  <label for="configInspetor">Nome do Inspetor / Responsável</label>
+  <input type="text" id="configInspetor" placeholder="Ex: Henrique Gouveia" onchange="salvarConfig()">
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
     <button class="btn btn-warning" onclick="removerTodasFotos()" style="flex:1"> Remover fotos dos dados</button>
-    <span style="font-size:0.8rem;color:#6b7280;width:100%">
-      Remove todas as fotos das anotações (mantém textos, locais, status). Use quando a vistoria estiver concluída para liberar espaço.
-    </span>
   </div>
+  <span style="font-size:0.8rem;color:#6b7280;width:100%;display:block;margin-top:6px">
+    Remove todas as fotos das anotações (mantém textos, locais, status). Use quando a vistoria estiver concluída para liberar espaço.
+  </span>
 </div>
 
 <div class="card">
@@ -426,9 +432,39 @@
   const SUPABASE_TABLE = 'vistoria_notes';
 
   const hoje = new Date();
+  const CONFIG_KEY = 'vistoria_config';
+
+  function carregarConfig() {
+    try {
+      return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { condominio: '', inspetor: '' };
+    } catch (e) { return { condominio: '', inspetor: '' }; }
+  }
+
+  function salvarConfig() {
+    const config = { condominio: document.getElementById('configCondominio').value.trim(), inspetor: document.getElementById('configInspetor').value.trim() };
+    try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+    atualizarHeader();
+    mostrarToast(' Configurações salvas');
+  }
+
+  function aplicarConfig() {
+    const config = carregarConfig();
+    document.getElementById('configCondominio').value = config.condominio || '';
+    document.getElementById('configInspetor').value = config.inspetor || '';
+    atualizarHeader();
+  }
+
+  function atualizarHeader() {
+    const config = carregarConfig();
+    const dataEl = document.getElementById('headerDate');
+    if (config.condominio) {
+      dataEl.textContent = config.condominio + ' — ' + hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    } else {
+      dataEl.textContent = hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    }
+  }
+
   document.getElementById('headerDate').textContent = hoje.toLocaleDateString('pt-BR', {
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-  });
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js?v=2').catch(err => console.log('SW erro:', err));
@@ -837,16 +873,22 @@
       }
 
       doc.setFillColor(30, 58, 138);
-      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.rect(0, 0, pageWidth, 30, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
+      doc.setFontSize(15);
       doc.setFont('helvetica', 'bold');
-      doc.text('Relatório de Vistoria de Pintura', pageWidth / 2, 11, { align: 'center' });
-      doc.setFontSize(9);
+      const config = carregarConfig();
+      doc.text('Relatório de Vistoria de Pintura', pageWidth / 2, 10, { align: 'center' });
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('Condomínio - ' + hoje.toLocaleDateString('pt-BR'), pageWidth / 2, 19, { align: 'center' });
+      const linha1 = (config.condominio || 'Condomínio') + ' — ' + hoje.toLocaleDateString('pt-BR');
+      doc.text(linha1, pageWidth / 2, 18, { align: 'center' });
+      if (config.inspetor) {
+        const linha2 = 'Inspetor: ' + config.inspetor;
+        doc.text(linha2, pageWidth / 2, 25, { align: 'center' });
+      }
 
-      y = 35;
+      y = 38;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
@@ -992,6 +1034,7 @@
   }
 
   async function init() {
+    aplicarConfig();
     setSyncStatus('off');
     renderizarLista();
 
